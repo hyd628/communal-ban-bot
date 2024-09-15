@@ -22,24 +22,25 @@ const raid_ban_radius = process.env.RAID_BAN_RADIUS
 const whitelisted_roles = process.env.WHITELISTED_ROLES!.split(" ")
 const client_id = process.env.CLIENT_ID
 const guild_id = process.env.SERVER_ID
-const method_signature = '0x70a08231'
-const NFT_contract = '0xe30dBeD16B994C7E563a524827DCa05E28b28f05'
-const NFT_role_ID = "989821037699010560"
+const NFT_verify_method_signature = process.env.NFT_VERIFY_METHOD_SIGNATURE
+const NFT_contract = process.env.NFT_CONTRACT
+const NFT_role_ID = process.env.NFT_ROLE_ID
+const NFT_token_ID = process.env.NFT_TOKEN_ID
 
 
 const providerRPC = {
-  moonbase: {
-    name: 'moonbase-alpha',
-    rpc: 'https://rpc.api.moonbase.moonbeam.network',
-    chainId: 1287, // 0x507 in hex,
+  moonbeam: {
+    name: 'moonbeam',
+    rpc: 'https://rpc.api.moonbeam.network',
+    chainId: 1284, // 0x507 in hex,
   },
 };
 
 const jsonrpcprovider = new ethers.providers.JsonRpcProvider(
-  providerRPC.moonbase.rpc,
+  providerRPC.moonbeam.rpc,
   {
-    chainId: providerRPC.moonbase.chainId,
-    name: providerRPC.moonbase.name,
+    chainId: providerRPC.moonbeam.chainId,
+    name: providerRPC.moonbeam.name,
   }
 )
 
@@ -78,6 +79,7 @@ export class CommunalMod {
         console.log("Running in DEV");
       }
 
+
       const commands = [];
 
       const command_data = new SlashCommandBuilder()
@@ -105,6 +107,7 @@ export class CommunalMod {
         try {
           console.log('Started refreshing application (/) commands.');
 
+
           await rest.put(
             Routes.applicationGuildCommands(client_id, guild_id),
             { body: commands },
@@ -122,6 +125,7 @@ export class CommunalMod {
     this.client.on('interactionCreate', async interaction => {
 
       if (!interaction.isCommand()) return;
+
 
       // Verify NFT command logic
       if (interaction.commandName === 'verifynft') {
@@ -144,8 +148,8 @@ export class CommunalMod {
           interaction.reply({ content: 'Address provided is not a valid H160 address.', ephemeral: true })
           return
         }
-        console.log(plaintext)
-        console.log(interaction.options.getString('signature'))
+        //console.log(plaintext)
+        //console.log(interaction.options.getString('signature'))
         try {
           address = ethers.utils.verifyMessage(plaintext, signature);
         }
@@ -153,12 +157,15 @@ export class CommunalMod {
           interaction.reply({ content: 'Signature provided is not a valid ECSDA signature.', ephemeral: true })
           return
         }
-        if (address.toLowerCase == wallet!.toLowerCase) {
+        //console.log(address)
+        //console.log(wallet!)
+        if (address.toLowerCase() === wallet!.toLowerCase()) {
 
           // Form the RPC request to check for NFT balance
           var request = {
                   "to" : NFT_contract,
-                  "data": method_signature +'000000000000000000000000'+wallet.substring(2)
+                  //We generate the request payload here for the "balanceOf" method
+                  "data": NFT_verify_method_signature + '000000000000000000000000' + address.substring(2) + '000000000000000000000000000000000000000000000000000000000000000' + NFT_token_ID
            }; 
 
           var response;
@@ -176,14 +183,14 @@ export class CommunalMod {
             const member = await interaction.guild?.members.fetch(interaction.user.id)
             var role = interaction.guild?.roles.cache.find(r => r.id === NFT_role_ID);
             member?.roles.add(role!)
-            interaction.reply({ content: 'Congratulations! Your Moonbuilder NFT has been verified and you now have the Moonbuilder role and all the associated access!', ephemeral: true })
+            interaction.reply({ content: 'Congratulations! Your Moonbuilder NFT has been verified and you now have the Moonbuilder-pioneer role and all the associated access!', ephemeral: true })
           } else
           {
             interaction.reply({ content: 'Your signature matches, but your wallet address does not have the Moonbuilder NFT. If you believe this is a mistake, please contact an admin.', ephemeral: true })
           }
         }
         else {
-          interaction.reply({ content: 'Your provided signature does not match with the address.', ephemeral: true })
+          interaction.reply({ content: 'Your signature does not match with the provided address.', ephemeral: true })
           return
         }
       }
@@ -192,7 +199,7 @@ export class CommunalMod {
       if (interaction.commandName === 'verifyhelp') {
           let embed = new Discord.MessageEmbed()
             .setTitle("How to Verify Your Moonbuilder Club NFT")
-            .setDescription("To verify your Moonbuilder Club NFT, you need to generate a signed message with the same wallet address that you hold the NFT token on. \n\n The signing can be done on [MyEtherWallet](https://www.myetherwallet.com/wallet/sign), [Polkadot JS apps wallet](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fwss.api.moonbase.moonbeam.network#/signing), or [programmatically](https://docs.ethers.io/v5/api/signer/). For more detailed instructions on generating the signed message, please check the [guide](https://www.google.com/) here. \n\n The message you need to sign is your Discord account tag, which is: \n\n " + "```" + interaction.user.tag + "```" +"\n\n "+"After you have created the signed message, you can proceed to use the `/verifynft` bot slash command to verify your ownership and receive the Moonbuilder Club role.");
+            .setDescription("To verify your Moonbuilder Social Club NFT, you need to generate a signed message with the same wallet address that you have the Moonbuilder Badge NFT token on. \n\n The signing can be done on [Moonscan's Verified Signature Page](https://moonscan.io/verifiedSignatures). For more detailed instructions on generating the signed message, please check the [tutorial](https://docs.google.com/document/d/1OctlbjKPu8tMZYTrYoBfQ9mC27IbJ1hruLPu_EvftX8/edit?usp=sharing) here. \n\n The message you need to sign is your Discord account tag, which is: \n\n " + "```" + interaction.user.tag + "```" +"\n\n "+"After you have created the signed message, you can proceed to use the `/verifynft` bot slash command to verify your ownership and receive the Moonbuilder Club role.");
           interaction.reply({ embeds: [embed] })
       }
     });
